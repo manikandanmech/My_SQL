@@ -1,0 +1,163 @@
+create database testing;
+use testing;
+
+CREATE TABLE user_profile (
+    user_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    enc_password VARCHAR(255) NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    mail_id VARCHAR(100) NOT NULL UNIQUE,
+    phone_no VARCHAR(12) NOT NULL UNIQUE,
+    gender CHAR NOT NULL
+);
+
+CREATE TABLE movies_list (
+    movie_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    movie_name VARCHAR(255) NOT NULL,
+    language VARCHAR(100) NOT NULL,
+    genre VARCHAR(100) NOT NULL,
+    movie_length TIME NOT NULL,
+    release_date DATE NOT NULL,
+    rating FLOAT NOT NULL
+);
+
+CREATE TABLE theatres (
+    theatre_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    theatre_name VARCHAR(255) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    total_screens INT NOT NULL,
+    ac_availability BOOL NOT NULL,
+    specialization TEXT NOT NULL
+);
+
+CREATE TABLE ratings (
+    rating_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    movie_id INT NOT NULL,
+    user_id INT NOT NULL,
+    rating FLOAT NOT NULL,
+    review TEXT,
+    FOREIGN KEY (movie_id) REFERENCES movies_list (movie_id),
+    FOREIGN KEY (user_id) REFERENCES user_profile (user_id)
+);
+
+CREATE TABLE timings (
+    timing_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    movie_id INT NOT NULL,
+    theatre_id INT NOT NULL,
+    timing VARCHAR(100) NOT NULL,
+    FOREIGN KEY (movie_id) REFERENCES movies_list (movie_id),
+    FOREIGN KEY (theatre_id) REFERENCES theatres (theatre_id)
+);
+
+CREATE TABLE available_movies (
+    available_movie_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    movie_id INT NOT NULL,
+    theatre_id INT NOT NULL,
+    FOREIGN KEY (movie_id) REFERENCES movies_list (movie_id),
+    FOREIGN KEY (theatre_id) REFERENCES theatres (theatre_id)
+);
+
+CREATE TABLE selected_movies (
+    selected_movie_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    available_movie_id INT NOT NULL,
+    seat_no VARCHAR(20) NOT NULL,
+    total_costs FLOAT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES user_profile (user_id),
+    FOREIGN KEY (available_movie_id) REFERENCES available_movies (available_movie_id)
+);
+
+CREATE TABLE payment (
+    payment_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    cost FLOAT NOT NULL,
+    card_no VARCHAR(16),
+    month INT,
+    year INT,
+    cvv INT,
+    status VARCHAR(10) NOT NULL,
+    selected_movie_id INT NOT NULL,
+    FOREIGN KEY (selected_movie_id) REFERENCES selected_movies (selected_movie_id)
+);
+
+CREATE TABLE booking_history (
+	booking_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, 
+    user_id INT NOT NULL, 
+    payment_id INT NOT NULL, 
+    FOREIGN KEY (user_id) REFERENCES user_profile(user_id), 
+    FOREIGN KEY (payment_id) REFERENCES payment(payment_id)
+);
+
+-- It's always better to store the created time and updated time for each records
+alter table user_profile add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table ratings add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table movies_list add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table timings add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table selected_movies add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table payment add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table available_movies add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table theatres add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+alter table booking_history add column created_time datetime not null default now(), add column updated_time datetime not null default now();
+
+-- Insert queries
+INSERT INTO user_profile (enc_password, name, mail_id, phone_no, gender)
+VALUES ("mypass1234", 'John Doe', 'johndoe@example.com', '1234567890', 'M');
+
+INSERT INTO movies_list (movie_name, language, genre, movie_length, release_date, rating)
+VALUES ('The Shawshank Redemption', 'English', 'Drama', '02:22:00', '1994-10-14', 9.3);
+
+INSERT INTO theatres (theatre_name, location, total_screens, ac_availability, specialization)
+VALUES ('ABC Theater', 'New York', 5, 1, 'Food court, Parking Lot');
+
+INSERT INTO ratings (movie_id, user_id, rating, review)
+VALUES (1, 1, 4, 'Not movie,  recommended!');
+
+INSERT INTO timings (movie_id, theatre_id, timing)
+VALUES (1, 1, '2023-06-24 18:00:00');
+
+INSERT INTO available_movies (movie_id, theatre_id)
+VALUES (1,  1);
+
+INSERT INTO selected_movies (user_id, available_movie_id, seat_no)
+VALUES (1, 1, 'A12 A13');
+
+INSERT INTO payment (cost, card_no, month, year, cvv, status, selected_movie_id)
+VALUES (10.50, '1234567890123456', 6, 2023, 123, 'Pending', 1);
+
+INSERT INTO booking_history (user_id, payment_id)
+VALUES (1, 1);
+
+show tables;
+select * from user_profile;
+select * from movies_list;
+select * from ratings;
+select * from theatres;
+select * from timings;
+select * from available_movies;
+select * from selected_movies;
+select * from payment;
+select * from booking_history;
+
+-- Get no of bookings done by an User
+select U.user_id, count(P.payment_id) as no_of_bookings 
+	from user_profile as U inner join selected_movies as S 
+	on U.user_id = S.user_id 
+	inner join payment as P 
+	on P.selected_movie_id = S.selected_movie_id where S.user_id=1 && P.status='Success';
+    
+-- Get current running movies with time and theatre details
+SELECT M.movie_name, M.language, M.genre, T.theatre_name, T.location, T.total_screens, TI.timing
+FROM movies_list as M inner join available_movies as A
+on M.movie_id = A.movie_id
+left join theatres as T on A.theatre_id = T.theatre_id
+left join timings as TI on T.theatre_id = TI.theatre_id && A.available_movie_id = TI.available_movie_id;
+    
+-- Get movie's rating given movie_id
+select M.movie_id, avg(R.rating) as rating, count(R.rating_id) as No_of_ratings from movies_list as M inner join ratings as R on M.movie_id = R.movie_id where M.movie_id = 2;
+
+-- Get payment history with user_profile, payment and selected_movies tables
+select * from payment as P left join selected_movies as S on S.selected_movie_id inner join user_profile as U on U.user_id = S.user_id where S.user_id = 1;
+
+-- Get payment history with booking_history table
+select * from payment as P left join booking_history as B on P.payment_id = B.payment_id where B.user_id = 1;
+
+-- Get movie collection for a movie_id
+select M.movie_id, sum(P.cost) as total_collection from payment as P left join selected_movies as S on P.selected_movie_id = P.selected_movie_id left join available_movies as A on A.available_movie_id = S.available_movie_id left join movies_list as M on M.movie_id = A.movie_id where M.movie_id = 1;
